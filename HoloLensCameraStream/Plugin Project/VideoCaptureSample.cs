@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 
 using Windows.Perception.Spatial;
@@ -15,6 +16,14 @@ using Windows.Media.Capture.Frames;
 
 namespace HoloLensCameraStream
 {
+    [ComImport]
+    [Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    unsafe interface IMemoryBufferByteAccess
+    {
+        void GetBuffer(out byte* buffer, out uint capacity);
+    }
+
     public class VideoCaptureSample
     {
         /// <summary>
@@ -89,6 +98,21 @@ namespace HoloLensCameraStream
             this.worldOrigin = worldOrigin;
 
             bitmap = frameReference.VideoMediaFrame.SoftwareBitmap;
+        }
+
+        /// <summary>
+        /// Get underlying unmanaged image data
+        /// </summary>
+        /// <returns>Pointer to image data</returns>
+        public unsafe IntPtr GetData()
+        {
+            using (var buffer = bitmap.LockBuffer(BitmapBufferAccessMode.ReadWrite))
+            using (var reference = buffer.CreateReference())
+            {
+                // Get a pointer to the pixel buffer
+                ((IMemoryBufferByteAccess)reference).GetBuffer(out byte* rawPointer, out uint uCapacity);
+                return (IntPtr)rawPointer;
+            }
         }
 
         /// <summary>
